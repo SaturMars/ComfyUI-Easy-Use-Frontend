@@ -535,14 +535,22 @@ app.registerExtension({
             if(node.widgets){
                 for (const w of node.widgets) {
                     if (!allow_widgets.includes(w.name)) continue
+                    // Nodes 2.0 (vue) widgets are class instances whose value accessor syncs to the
+                    // frontend's widget store; it lives on a base class up the prototype chain, so walk
+                    // the chain and chain to it, letting loaded/configured values reach the store.
+                    let protoValue, proto = w
+                    while (!protoValue && (proto = Object.getPrototypeOf(proto))) {
+                        protoValue = Object.getOwnPropertyDescriptor(proto, 'value')
+                    }
                     let widgetValue = w.value;
                     toggleLogic(node, w)
                     // Define getters and setters for widget values
                     Object.defineProperty(w, 'value', {
-                        get: _ => widgetValue,
+                        get: _ => protoValue?.get ? protoValue.get.call(w) : widgetValue,
                         set(newVal) {
                             if (newVal !== widgetValue) {
                                 widgetValue = newVal;
+                                protoValue?.set?.call(w, newVal)
                                 requestAnimationFrame(_=>{
                                     toggleLogic(node, w)
                                 })
