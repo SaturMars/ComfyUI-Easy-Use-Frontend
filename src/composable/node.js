@@ -9,11 +9,20 @@ export const toggleWidget = (node, widget, show = false, suffix = "") => {
 	}
 	const origSize = node.size;
 	widget.hidden = !show;
+	// Nodes 2.0 (vue) mode checks widget.options.hidden to decide visibility
+	if (widget.options) widget.options.hidden = !show;
 	widget.type = show ? origProps[widget.name].origType : "easyHidden" + suffix;
 	widget.computeSize = show ? origProps[widget.name].origComputeSize : () => [0, -4];
 	widget.linkedWidgets?.forEach(w => toggleWidget(node, w, ":" + widget.name, show));
 	const height = show ? Math.max(node.computeSize()[1], origSize[1]) : node.size[1];
 	node.setSize([node.size[0], height]);
+	// Nodes 2.0 (vue) mode wraps node.widgets in a shallow reactive array that ignores
+	// property mutations, and value-identical writes are suppressed, so force a real
+	// (but order-preserving) add+delete to make it re-read widget props.
+	if (node.widgets?.length) {
+		node.widgets.push(node.widgets[node.widgets.length - 1]);
+		node.widgets.splice(node.widgets.length - 2, 1);
+	}
 }
 export const getWidgetValue = (node, slot = 0) => {
 	if (!node) return undefined;
